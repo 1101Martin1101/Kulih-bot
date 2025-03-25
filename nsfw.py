@@ -22,20 +22,23 @@ class NSFWClient:
     async def send_image(self):
         """Odešle obrázek dle zvoleného typu."""
         if self.channel and self.image_type:
-            response = requests.get(f"https://nekobot.xyz/api/image?type={self.image_type}")
-            if response.status_code == 200:
-                image_url = response.json().get("message")
-                
-                # Vylepšený Embed pro zobrazení obrázku
-                embed = discord.Embed(
-                    title=f"NSFW Image: {self.image_type}",
-                    description=f"Type: {self.image_type}",
-                    color=discord.Color.from_rgb(227, 159, 215)
-                )
-                embed.set_image(url=image_url)
-                await self.channel.send(embed=embed)
-            else:
-                print("Error fetching image.")
+            try:
+                response = requests.get(f"https://nekobot.xyz/api/image?type={self.image_type}")
+                if response.status_code == 200:
+                    image_url = response.json().get("message")
+                    
+                    # Vylepšený Embed pro zobrazení obrázku
+                    embed = discord.Embed(
+                        title=f"NSFW Image: {self.image_type}",
+                        description=f"Type: {self.image_type}",
+                        color=discord.Color.from_rgb(227, 159, 215)
+                    )
+                    embed.set_image(url=image_url)
+                    await self.channel.send(embed=embed)
+                else:
+                    print("Error fetching image.")
+            except Exception as e:
+                print(f"Error: {e}")
         else:
             print("Channel or image type not set.")
 
@@ -93,8 +96,10 @@ async def startgen(interaction: discord.Interaction, type: str, interval: str, c
 
         await interaction.response.send_message(embed=embed)
 
-        if not nsfw_client.task:
-            nsfw_client.task = asyncio.create_task(nsfw_client.send_images_periodically())
+        if nsfw_client.task:
+            nsfw_client.task.cancel()  # Zastavíme stávající úlohu, pokud existuje
+
+        nsfw_client.task = asyncio.create_task(nsfw_client.send_images_periodically())
     else:
         await interaction.response.send_message(
             f"Neplatný typ obrázku. K dispozici jsou tyto typy: {', '.join(ImageTypes.keys())}"
