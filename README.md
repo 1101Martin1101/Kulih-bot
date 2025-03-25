@@ -18,5 +18,5 @@ Tento bot je vytvořen pomocí `discord.py` a nabízí širokou škálu příkaz
 1. Ujisti se, že máš nainstalovaný Python 3.9+ a `pip`
 2. Naklonuj tento repozitář:
    ```sh
-   git clone https://github.com/1101Martin1101/dsbot/tree/main
+   git clone https://github.com/1101Martin1101/Kulih-bot
    cd tvuj-bot
