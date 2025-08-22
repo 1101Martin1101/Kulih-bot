@@ -9,7 +9,7 @@ from help import setup_help_command
 from info import setup_info_command
 from stats import setup
 from fun import setup_fun_commands
-from nsfw import setup_nsfw_commands
+#from nsfw import setup_nsfw_commands
 from mod import setup_mod_commands
 from minecraft import setup_minecraft_commands
 from kulhon import setup_kulhon_commands
@@ -80,7 +80,7 @@ bot = commands.Bot(
 @bot.event
 async def on_ready():
     bot.start_time = time.time()
-    print("──────────────────────────────")
+    print("────────────────────────────────────────────────────────────────────")
     logging.info(f"🟢 Bot připojen jako: {bot.user}")
     logging.info(f"🌐 Počet serverů: {len(bot.guilds)}")
     logging.info(f"👥 Celkem uživatelů: {sum(g.member_count for g in bot.guilds)}")
@@ -101,7 +101,7 @@ async def on_ready():
     for line in lines:
         logging.info(line)
 
-    logging.info("──────────────────────────────")
+    logging.info("────────────────────────────────────────────────────────────────────")
 
     try:
         await bot.tree.sync()
@@ -132,11 +132,14 @@ def setup_bot_commands():
     setup_info_command(bot)
     setup(bot)  # ze stats.py
     setup_fun_commands(bot)
-    setup_nsfw_commands(bot)
+#    setup_nsfw_commands(bot)
     setup_mod_commands(bot)
     setup_minecraft_commands(bot)
     asyncio.run(setup_kulhon_commands(bot))
     asyncio.run(setup_rep_command(bot))
+    # Přidej tento řádek pro načtení chatu:
+    from chatbot.chat import setup as setup_chat
+    asyncio.run(setup_chat(bot))
 
 # Logování příkazů (slash i prefix)
 @bot.event
@@ -168,3 +171,4 @@ if __name__ == "__main__":
     setup_bot_commands()
 
     bot.run("TOKEN")  # TVŮJ_TOKEN
+
