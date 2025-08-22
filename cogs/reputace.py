@@ -297,7 +297,7 @@ class Reputace(commands.Cog):
             async with db.execute(
                 """
                 SELECT
-                    AVG(avg_stars) as overall_avg,
+                    SUM(avg_stars) as overall_sum,
                     COUNT(*) as givers_count,
                     (SELECT COUNT(*) FROM reputace WHERE user_id = ?) as total_reviews
                 FROM (
@@ -309,7 +309,7 @@ class Reputace(commands.Cog):
                 """, (uzivatel.id, uzivatel.id)
             ) as cur2:
                 row2 = await cur2.fetchone()
-                overall_avg = row2[0] or 0.0
+                overall_sum = row2[0] or 0.0
                 givers_count = row2[1] or 0
                 total_reviews = row2[2] or 0
 
@@ -339,7 +339,7 @@ class Reputace(commands.Cog):
         # Hlavní pole
         embed.add_field(name="Důvod", value=duvod or "-", inline=False)
         embed.add_field(name="Počet hvězd", value=f"{hvezdicky} ⭐", inline=True)
-        embed.add_field(name="Průměr", value=f"{overall_avg:.2f} ⭐ (z {givers_count} hodnotitelů, {total_reviews} hodnocení celkem)", inline=True)
+        embed.add_field(name="Součet průměrů", value=f"{overall_sum:.2f} ⭐ (od {givers_count} hodnotitelů, {total_reviews} hodnocení celkem)", inline=True)
         embed.add_field(name="ID záznamu", value=f"id{entry_id}", inline=True)
 
         # Footer s informací kdo dal rep a čitelným časem vložení
@@ -356,14 +356,14 @@ class Reputace(commands.Cog):
         # použij per-giver průměr (každý giver má stejnou váhu)
         async with aiosqlite.connect(path) as db:
             async with db.execute("""
-                SELECT user_id, AVG(avg_stars) as avg_rep, COUNT(*) as givers
+                SELECT user_id, SUM(avg_stars) as sum_rep, COUNT(*) as givers
                 FROM (
                     SELECT user_id, from_id, AVG(stars) as avg_stars
                     FROM reputace
                     GROUP BY user_id, from_id
                 )
                 GROUP BY user_id
-                ORDER BY avg_rep DESC, givers DESC
+                ORDER BY sum_rep DESC, givers DESC
                 LIMIT 200
             """) as cur:
                 rows = await cur.fetchall()
@@ -398,10 +398,10 @@ class Reputace(commands.Cog):
             """, (uzivatel.id,)) as cur:
                 rows = await cur.fetchall()
 
-            # per-giver průměr + počty (givers_count = počet rozdílných hodnotitelů, total_reviews = celkem záznamů)
+            # per-giver průměr + počty
             async with db.execute("""
                 SELECT
-                    AVG(avg_stars) as overall_avg,
+                    SUM(avg_stars) as overall_sum,
                     COUNT(*) as givers_count,
                     (SELECT COUNT(*) FROM reputace WHERE user_id = ?) as total_reviews
                 FROM (
@@ -412,7 +412,7 @@ class Reputace(commands.Cog):
                 )
             """, (uzivatel.id, uzivatel.id)) as cur2:
                 row2 = await cur2.fetchone()
-                overall_avg = row2[0] or 0.0
+                overall_sum = row2[0] or 0.0
                 givers_count = row2[1] or 0
                 total_reviews = row2[2] or 0
 
@@ -423,38 +423,73 @@ class Reputace(commands.Cog):
                 requester_count = row3[1] or 0
 
         if not rows:
-            await interaction.response.send_message("Tento člen zatím nemá žádnou reputaci.", ephemeral=False)
+            await interaction.response.send_message("Tento člen zatím nemá žádnou reputaci.", ephemeral=True)
             return
 
-        view = RepListView(rows, uzivatel, interaction, overall_avg, givers_count, total_reviews, requester_avg, requester_count)
+        view = RepListView(rows, uzivatel, interaction, overall_sum, givers_count, total_reviews, requester_avg, requester_count)
 
-        # sestav embed (první strana)
+        # Stránkování
         start = 0
         slice_rows = rows[start:start + view.per_page]
 
-        header_lines = [
-            f"Průměr (per hodnotitel): **{overall_avg:.2f}** ⭐ — {givers_count} hodnotitelů",
-            f"Celkem hodnocení: **{total_reviews}**"
-        ]
-        if requester_count > 0:
-            header_lines.append(f"Tvůj průměr: **{requester_avg:.2f}** ⭐ (z {requester_count})")
-        else:
-            header_lines.append("Ty jsi tohoto člena ještě nehodnotil.")
-
-        lines = []
-        for i, (entry_id, from_id, stars, reason, timestamp) in enumerate(slice_rows, start=1):
-            date = timestamp[:19] if isinstance(timestamp, str) else str(timestamp)
-            reason_text = reason if reason else "-"
-            member = interaction.guild.get_member(from_id)
-            giver = f"{member.name}#{member.discriminator}" if member else f"<@{from_id}>"
-            lines.append(f"**{i}.** [id{entry_id}] {stars}⭐ — {giver} — {date}\n**Důvod:** {reason_text}")
-
-        desc = "\n\n".join(header_lines) + "\n\n" + ("\n\n".join(lines) if lines else "Žádná hodnocení na této straně.")
-        embed = discord.Embed(title=f"Reputace pro {uzivatel.display_name} (strana 1/{view.max_page+1})", description=desc, color=discord.Color.blue())
+        # Embed
+        embed = discord.Embed(
+            title=f"🌟 Reputace pro {uzivatel.display_name}",
+            color=discord.Color.blurple()
+        )
         if uzivatel.display_avatar:
             embed.set_thumbnail(url=uzivatel.display_avatar.url)
 
-        await interaction.response.send_message(embed=embed, view=view, ephemeral=False)
+        # Statistika
+        embed.add_field(
+            name="📊 Součet průměrů od hodnotitelů",
+            value=f"**{overall_sum:.2f}** ⭐\n"
+                  f"Hodnotitelů: **{givers_count}**\n"
+                  f"Celkem hodnocení: **{total_reviews}**",
+            inline=False
+        )
+
+        # Tvé hodnocení
+        if requester_count > 0:
+            embed.add_field(
+                name="🧑‍💻 Tvé hodnocení",
+                value=f"Průměr: **{requester_avg:.2f}** ⭐ (z {requester_count})",
+                inline=False
+            )
+        else:
+            embed.add_field(
+                name="🧑‍💻 Tvé hodnocení",
+                value="Ty jsi tohoto člena ještě nehodnotil.",
+                inline=False
+            )
+
+        # Seznam hodnocení
+        if slice_rows:
+            lines = []
+            for i, (entry_id, from_id, stars, reason, timestamp) in enumerate(slice_rows, start=1):
+                date = timestamp[:19] if isinstance(timestamp, str) else str(timestamp)
+                reason_text = reason if reason else "-"
+                member = interaction.guild.get_member(from_id)
+                giver = f"{member.name}#{member.discriminator}" if member else f"<@{from_id}>"
+                lines.append(
+                    f"**{i}.** [id{entry_id}] {stars}⭐ — {giver} — {date}\n"
+                    f"> *{reason_text}*"
+                )
+            embed.add_field(
+                name=f"📝 Hodnocení (strana 1/{view.max_page+1})",
+                value="\n\n".join(lines),
+                inline=False
+            )
+        else:
+            embed.add_field(
+                name="📝 Hodnocení",
+                value="Žádná hodnocení na této straně.",
+                inline=False
+            )
+
+        embed.set_footer(text="Pouze ty vidíš tento seznam • Stránkování pomocí tlačítek dole")
+
+        await interaction.response.send_message(embed=embed, view=view, ephemeral=True)
 
     @app_commands.command(name="repdel", description="Smaž reputaci podle ID (ten kdo ji vytvořil nebo admin může mazat)")
     @app_commands.describe(rep_id="ID reputace (z /replist) — napiš např. id1 nebo 1", uzivatel="Uživatel, jehož záznam mažeš (volitelné)")
