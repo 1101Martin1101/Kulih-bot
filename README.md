@@ -1,6 +1,6 @@
 # 🟠 Kulih Bot
 
-👉 [Pozvat bota na server](https://discord.com/oauth2/authorize?client_id=1314134553727733770)
+👉 [Pozvat bota na server nebo přípoj aktivitu](https://discord.com/oauth2/authorize?client_id=1314134553727733770)
 
 ---
 💡 *Kulih ti usnadní život na Discordu a přinese trochu chaosu navíc.*
