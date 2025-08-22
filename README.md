@@ -1,4 +1,9 @@
-# Kulih bot
+# 🟠 Kulih Bot
+
+👉 [Pozvat bota na server](https://discord.com/oauth2/authorize?client_id=1314134553727733770&permissions=8&integration_type=0&scope=bot)
+
+---
+💡 *Kulih ti usnadní život na Discordu a přinese trochu chaosu navíc.*
 
 Tento bot je vytvořen pomocí `discord.py` a nabízí širokou škálu příkazů pro moderaci, ekonomiku, reputaci, zábavu i informace.
 
