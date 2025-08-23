@@ -6,7 +6,11 @@ import pkg_resources
 import sys
 from kulhon.db import ensure_guild_db
 from help import setup_help_command
-from info import setup_info_command
+from info import (
+    setup_info_command,
+    increment_command_counts,
+    reset_session_count
+)
 from stats import setup
 from fun import setup_fun_commands
 #from nsfw import setup_nsfw_commands
@@ -19,11 +23,11 @@ import logging
 import datetime
 
 # Vytvoření složky log, pokud neexistuje
-if not os.path.exists("log"):
-    os.makedirs("log")
+if not os.path.exists("logs"):
+    os.makedirs("logs")
 
-# Název log souboru podle času spuštění
-log_filename = datetime.datetime.now().strftime("log/bot_%Y-%m-%d_%H-%M-%S.log")
+# Název log souboru podle dne (každý den jen jeden log)
+log_filename = datetime.datetime.now().strftime("logs/bot_%Y-%m-%d.log")
 
 # Nastavení loggeru
 logging.basicConfig(
@@ -41,7 +45,7 @@ def print_banner():
     logging.info("         K U L I H   B O T         ")
     logging.info("===================================")
     logging.info(f"Startuji Kulih bota...  {datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
-    logging.info("Autor: kulih | GitHub Copilot | https://github.com/kulih1101")
+    logging.info("Autor: kulih | GitHub Copilot | https://github.com/1101Martin1101")
     logging.info("──────────────────────────────")
 
 print_banner()
@@ -143,7 +147,14 @@ def setup_bot_commands():
 
 # Logování příkazů (slash i prefix)
 @bot.event
+async def on_command(ctx):
+    increment_command_counts()
+    user = ctx.author
+    logging.info(f"{user} issued prefix command: {ctx.message.content}")
+
+@bot.event
 async def on_app_command_completion(interaction, command):
+    increment_command_counts()
     user = interaction.user
     params = ""
     if interaction.data.get("options"):
@@ -151,11 +162,6 @@ async def on_app_command_completion(interaction, command):
             f"{opt['name']}={opt.get('value', '')}" for opt in interaction.data["options"]
         )
     logging.info(f"{user} issued slash command: /{command.name} {params}")
-
-@bot.event
-async def on_command(ctx):
-    user = ctx.author
-    logging.info(f"{user} issued prefix command: {ctx.message.content}")
 
 # Logování chyb
 @bot.event  
@@ -167,8 +173,17 @@ async def on_app_command_error(interaction, error):
     user = interaction.user
     logging.warning(f"Slash command error for {user}: {error}")
 
-if __name__ == "__main__":
-    setup_bot_commands()
+@bot.event
+async def on_message(message):
+    if message.author.bot:
+        await bot.process_commands(message)
+        return
+    increment_command_counts()
+    await bot.process_commands(message)
 
+if __name__ == "__main__":
+    reset_session_count()  # ← přidej tento řádek
+    setup_bot_commands()
     bot.run("TOKEN")  # TVŮJ_TOKEN
+
 
