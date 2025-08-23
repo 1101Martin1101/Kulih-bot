@@ -4,33 +4,46 @@ import time
 import os
 import platform
 import socket
+import json
 
-# Globální proměnná pro počítání zpráv
-message_count = 0
-total_message_count = 0
+COUNT_FILE = "message_count.json"
 
-def load_total_message_count():
-    global total_message_count
-    try:
-        with open("messages_count.txt", "r") as f:
-            total_message_count = int(f.read())
-    except Exception:
-        total_message_count = 0
+def load_command_counts():
+    if not os.path.exists(COUNT_FILE):
+        return {"total": 0, "session": 0}
+    with open(COUNT_FILE, "r", encoding="utf-8") as f:
+        try:
+            data = json.load(f)
+            return {
+                "total": data.get("total", 0),
+                "session": data.get("session", 0)
+            }
+        except Exception:
+            return {"total": 0, "session": 0}
 
-def save_total_message_count():
-    with open("messages_count.txt", "w") as f:
-        f.write(str(total_message_count))
+def save_command_counts(total, session):
+    with open(COUNT_FILE, "w", encoding="utf-8") as f:
+        json.dump({"total": total, "session": session}, f)
 
-# Načti při startu
-load_total_message_count()
+def reset_session_count():
+    counts = load_command_counts()
+    save_command_counts(counts["total"], 0)
+
+def increment_command_counts():
+    counts = load_command_counts()
+    counts["total"] += 1
+    counts["session"] += 1
+    save_command_counts(counts["total"], counts["session"])
+
+def get_total_command_count():
+    return load_command_counts()["total"]
+
+def get_session_command_count():
+    return load_command_counts()["session"]
 
 # Funkce pro příkaz /info
 async def info_command(interaction: discord.Interaction):
-    global message_count, total_message_count
-    message_count += 1  # Přičte i slash command
-    total_message_count += 1
-    save_total_message_count()
-    this_file = os.path.abspath(__file__)  # ← Přidej tuto řádku
+    this_file = os.path.abspath(__file__)  # ← Přidej tuto řádky
     """info command with system info and bot status."""
     # Získání informací o systému
     ram_usage = psutil.virtual_memory().percent  # RAM využití v %
@@ -114,14 +127,11 @@ async def info_command(interaction: discord.Interaction):
         value=f"{total_lines} řádků\n{total_chars} znaků",
         inline=True
     )
+    total_message_count = get_total_command_count()
+    session_message_count = get_session_command_count()
     embed.add_field(
-        name="📦 Příkazů",
-        value=f"{command_count}",
-        inline=True
-    )
-    embed.add_field(
-        name="💬 Zpráv (běh / celkem)",
-        value=f"{message_count} / {total_message_count}",
+        name="💬 Příkazů",
+        value=f"\n(celkem / od spuštění)\n{total_message_count} / {session_message_count}",
         inline=True
     )
 
@@ -148,11 +158,3 @@ def setup_info_command(bot):
     @bot.tree.command(name="info", description="Zobrazí informace o botovi.")
     async def info_command_register(interaction: discord.Interaction):
         await info_command(interaction)
-
-# Přidej do hlavního souboru bota (např. bot.py) tuto funkci do on_message:
-# async def on_message(message):
-#     global message_count, total_message_count
-#     message_count += 1
-#     total_message_count += 1
-#     save_total_message_count()
-#     await bot.process_commands(message)

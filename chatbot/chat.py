@@ -3,6 +3,7 @@ from discord.ext import commands
 import json
 import os
 import asyncio
+from deep_translator import GoogleTranslator
 
 KUL_ID = 771295264153141250
 SETTINGS_PATH = os.path.join(os.path.dirname(__file__), "set.json")
@@ -37,6 +38,8 @@ async def safe_attachments_to_files(attachments, max_retries=15, delay=1.0):
                 print(f"[SAFE_ATTACH] Chyba při stahování přílohy: {e}")
                 break
     return files if files else None
+
+translator = GoogleTranslator()
 
 class KulTyp(commands.Cog):
     def __init__(self, bot):
@@ -136,7 +139,7 @@ class KulTyp(commands.Cog):
             )
             # Spoiler pingy - zde můžeš změnit formát!
             if mentions:
-                spoiler_pings = " ".join(f"||​||||​||||​||||​||||​||||​||||​||||​||||​||||​||||​||||​||||​||||​||||​||||​||||​||||​||||​||||​||||​||||​||||​||||​||||​||||​||||​||||​||||​||||​||||​||||​||||​||||​||||​||||​||||​||||​||||​||||​||||​||||​||||​||||​||||​||||​||||​||||​||||​||||​||||​||||​||||​||||​||||​||||​||||​||||​||||​||||​||||​||||​||||​||||​||||​||||​||||​||||​||||​||||​||||​||||​||||​||||​||||​||||​||||​||||​||||​||||​||||​||||​||||​||||​||||​||||​||||​||||​||||​||||​||||​||||​||||​||||​||||​||||​||||​||||​||||​||||​||||​||||​||||​||||​||||​||||​||||​||||​||||​||||​||||​||||​||||​||||​||||​||||​||||​||||​||||​||||​||||​||||​||||​||||​||||​||||​||||​||||​||||​||||​||||​||||​||||​||||​||||​||||​||||​||||​||||​||||​||||​||||​||||​||||​||||​||||​||||​||||​||||​||||​||||​||||​||||​||||​||||​||||​||||​||||​||||​||||​||||​||||​||||​||||​||||​||||​||||​||||​||||​||||​||||​||||​||||​||||​||||​||||​||||​||||​||||​||||​||||​||||​||||​||||​||||​||||​||||​||||​||||​||||​||||​||||​||||​||||​||||​||||​||||​||||​|| _ _ _ _ _ _{m}" for m in mentions)
+                spoiler_pings = " ".join(f"|{m}" for m in mentions)
             else:
                 spoiler_pings = None
 
@@ -162,6 +165,25 @@ class KulTyp(commands.Cog):
                 await message.delete()
             except Exception:
                 pass
+            return
+
+        # PRELOZ <jazyk> <zpráva> - přeloží do zvoleného jazyka (např. preloz en ahoj světe)
+        if message.content.lower().startswith("preloz "):
+            parts = message.content.split(maxsplit=2)
+            if len(parts) < 3:
+                await message.channel.send("Použití: preloz <jazyk> <zpráva>")
+                return
+            jazyk = parts[1]
+            text = parts[2]
+            try:
+                preklad = GoogleTranslator(source='auto', target=jazyk).translate(text)
+            except Exception:
+                preklad = "Chyba při překladu."
+            try:
+                await message.delete()
+            except Exception:
+                pass
+            await message.channel.send(preklad)
             return
 
         content = message.content.lower().strip()
@@ -192,7 +214,6 @@ class KulTyp(commands.Cog):
             return
 
         # Smaž zprávu a pošli ji do kanálu místo tebe (nejdřív smaž, pak pošli)
-        # await asyncio.sleep(1.0)  # Už není potřeba
         try:
             await message.delete()
         except Exception:
