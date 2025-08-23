@@ -5,6 +5,8 @@ import os
 import asyncio
 from deep_translator import GoogleTranslator
 from discord import app_commands
+import re
+import datetime
 
 KUL_ID = 771295264153141250
 SETTINGS_PATH = os.path.join(os.path.dirname(__file__), "set.json")
@@ -159,7 +161,7 @@ class KulTyp(commands.Cog):
             )
             # Spoiler pingy - zde můžeš změnit formát!
             if mentions:
-                spoiler_pings = " ".join(f"||​||||​||||​||||​||||​||||​||||​||||​||||​||||​||||​||||​||||​||||​||||​||||​||||​||||​||||​||||​||||​||||​||||​||||​||||​||||​||||​||||​||||​||||​||||​||||​||||​||||​||||​||||​||||​||||​||||​||||​||||​||||​||||​||||​||||​||||​||||​||||​||||​||||​||||​||||​||||​||||​||||​||||​||||​||||​||||​||||​||||​||||​||||​||||​||||​||||​||||​||||​||||​||||​||||​||||​||||​||||​||||​||||​||||​||||​||||​||||​||||​||||​||||​||||​||||​||||​||||​||||​||||​||||​||||​||||​||||​||||​||||​||||​||||​||||​||||​||||​||||​||||​||||​||||​||||​||||​||||​||||​||||​||||​||||​||||​||||​||||​||||​||||​||||​||||​||||​||||​||||​||||​||||​||||​||||​||||​||||​||||​||||​||||​||||​||||​||||​||||​||||​||||​||||​||||​||||​||||​||||​||||​||||​||||​||||​||||​||||​||||​||||​||||​||||​||||​||||​||||​||||​||||​||||​||||​||||​||||​||||​||||​||||​||||​||||​||||​||||​||||​||||​||||​||||​||||​||||​||||​||||​||||​||||​||||​||||​||||​||||​||||​||||​||||​||||​||||​||||​||||​||||​||||​||||​||||​||||​||||​||||​||||​||||​||||​|| _ _ _ _ _ _{m}" for m in mentions)
+                spoiler_pings = " ".join(f"|_ _{m}" for m in mentions)
             else:
                 spoiler_pings = None
 
@@ -208,9 +210,6 @@ class KulTyp(commands.Cog):
 
         # EMBEDJSON <json> - vytvoří embed podle zadaného JSONu
         if message.content.startswith("embedjson "):
-            import datetime
-            import re
-
             json_text = message.content[9:].strip()
             # Pokud je JSON v code blocku, odstraň ho
             if json_text.startswith("```") and json_text.endswith("```"):
@@ -317,16 +316,109 @@ class KulTyp(commands.Cog):
                 pass
             return
 
-        # Pokud je Kulbot zapnutý, přepošli zprávu za autora a smaž původní
+        # EDITEMBED - upraví embed v odpovězené zprávě
+        if message.reference and message.content.startswith("editembed "):
+            if message.author.id != KUL_ID:
+                return
+            try:
+                ref_msg = await message.channel.fetch_message(message.reference.message_id)
+                new_text = message.content[len("editembed "):].strip()
+                embed = discord.Embed(description=new_text, color=discord.Color.blurple())
+                await ref_msg.edit(embed=embed)
+                await message.delete()
+            except Exception as e:
+                await message.channel.send(f"❌ Chyba při editaci embedu: {e}")
+            return
+
+        # EDITEMBEDJSON - upraví embed podle JSONu v odpovězené zprávě
+        if message.reference and message.content.startswith("editembedjson "):
+            if message.author.id != KUL_ID:
+                return
+            json_text = message.content[len("editembedjson "):].strip()
+            if json_text.startswith("```") and json_text.endswith("```"):
+                json_text = re.sub(r"^```(?:json)?|```$", "", json_text, flags=re.DOTALL).strip()
+            try:
+                data = json.loads(json_text)
+                embed = discord.Embed()
+                if "color" in data:
+                    try:
+                        if isinstance(data["color"], str) and data["color"].startswith("#"):
+                            embed.color = discord.Color(int(data["color"][1:], 16))
+                        else:
+                            embed.color = discord.Color(int(data["color"]))
+                    except Exception:
+                        pass
+                if "title" in data:
+                    embed.title = data["title"]
+                if "url" in data:
+                    embed.url = data["url"]
+                if "description" in data:
+                    embed.description = data["description"]
+                if "author" in data:
+                    author = data["author"]
+                    name = author.get("name")
+                    url = author.get("url")
+                    icon_url = author.get("icon_url")
+                    if name:
+                        embed.set_author(name=name, url=url, icon_url=icon_url)
+                if "thumbnail" in data and "url" in data["thumbnail"]:
+                    embed.set_thumbnail(url=data["thumbnail"]["url"])
+                if "image" in data and "url" in data["image"]:
+                    embed.set_image(url=data["image"]["url"])
+                if "fields" in data:
+                    for f in data["fields"]:
+                        embed.add_field(
+                            name=f.get("name", "\u200b"),
+                            value=f.get("value", "\u200b"),
+                            inline=f.get("inline", False)
+                        )
+                if "footer" in data:
+                    footer = data["footer"]
+                    text = footer.get("text")
+                    icon_url = footer.get("icon_url")
+                    if text:
+                        embed.set_footer(text=text, icon_url=icon_url)
+                if "timestamp" in data:
+                    ts = data["timestamp"]
+                    try:
+                        if isinstance(ts, (int, float)):
+                            embed.timestamp = datetime.datetime.utcfromtimestamp(ts / 1000)
+                        elif isinstance(ts, str):
+                            embed.timestamp = datetime.datetime.fromisoformat(ts)
+                    except Exception:
+                        pass
+                ref_msg = await message.channel.fetch_message(message.reference.message_id)
+                await ref_msg.edit(embed=embed)
+                await message.delete()
+            except Exception as e:
+                await message.channel.send(f"❌ Chyba při editaci embedu: {e}")
+            return
+
+        # EDITCHAT - upraví text původní zprávy
+        if message.reference and message.content.startswith("editchat "):
+            if message.author.id != KUL_ID:
+                return
+            try:
+                ref_msg = await message.channel.fetch_message(message.reference.message_id)
+                new_text = message.content[len("editchat "):].strip()
+                await ref_msg.edit(content=new_text)
+                await message.delete()
+            except Exception as e:
+                await message.channel.send(f"❌ Chyba při editaci zprávy: {e}")
+            return
+
+        # --- TEPRVE TEĎ blok pro kulbot ---
         if self.is_enabled(message.guild.id):
-            # Nepřeposílej příkazy ani prázdné zprávy
             if not message.content.strip():
                 return
-            # Nepřeposílej, pokud už je to embed nebo příkaz
             if message.content.startswith(("embed ", "embedjson ", "preloz ", "kulbot on", "kulbot off")):
                 return
             try:
-                await message.channel.send(message.content)
+                if message.reference and message.reference.message_id:
+                    ref_msg = await message.channel.fetch_message(message.reference.message_id)
+                    await message.channel.send(message.content, reference=ref_msg)
+                else:
+                    await message.channel.send(message.content)
                 await message.delete()
             except Exception:
                 pass
