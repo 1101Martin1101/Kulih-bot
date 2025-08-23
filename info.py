@@ -146,7 +146,7 @@ async def info_command(interaction: discord.Interaction):
     embed.set_thumbnail(url=interaction.client.user.avatar.url)
     embed.add_field(
         name="🔗 Pozvi bota", 
-        value="[INVITE](https://discord.com/oauth2/authorize?client_id=1314134553727733770&permissions=8&integration_type=0&scope=bot )", 
+        value="[INVITE](https://discord.com/oauth2/authorize?client_id=1314134553727733770&permissions=8&integration_type=0&scope=bot)", 
         inline=False
     )
     await interaction.response.send_message(embed=embed)
@@ -155,6 +155,6 @@ async def info_command(interaction: discord.Interaction):
 def setup_info_command(bot):
     @discord.app_commands.allowed_installs(guilds=True, users=True)
     @discord.app_commands.allowed_contexts(guilds=True, dms=True, private_channels=True)
-    @bot.tree.command(name="info", description="Zobrazí informace o botovi.")
+    @bot.tree.command(name="ping", description="Zobrazí informace o botovi.")
     async def info_command_register(interaction: discord.Interaction):
         await info_command(interaction)
