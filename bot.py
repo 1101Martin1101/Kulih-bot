@@ -13,7 +13,7 @@ from info import (
 )
 from stats import setup
 from fun import setup_fun_commands
-#from nsfw import setup_nsfw_commands
+from nsfw import setup_nsfw_commands
 from mod import setup_mod_commands
 from minecraft import setup_minecraft_commands
 from kulhon import setup_kulhon_commands
@@ -134,14 +134,13 @@ async def on_guild_remove(guild):
 def setup_bot_commands():
     setup_help_command(bot)
     setup_info_command(bot)
-    setup(bot)  # ze stats.py
+    setup(bot)
     setup_fun_commands(bot)
-#    setup_nsfw_commands(bot)
+    setup_nsfw_commands(bot)
     setup_mod_commands(bot)
     setup_minecraft_commands(bot)
     asyncio.run(setup_kulhon_commands(bot))
     asyncio.run(setup_rep_command(bot))
-    # Přidej tento řádek pro načtení chatu:
     from chatbot.chat import setup as setup_chat
     asyncio.run(setup_chat(bot))
 
@@ -182,8 +181,9 @@ async def on_message(message):
     await bot.process_commands(message)
 
 if __name__ == "__main__":
-    reset_session_count()  # ← přidej tento řádek
+    reset_session_count()
     setup_bot_commands()
     bot.run("TOKEN")  # TVŮJ_TOKEN
+
 
 
